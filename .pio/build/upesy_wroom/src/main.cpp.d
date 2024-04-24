@@ -228,4 +228,12 @@
  .pio/libdeps/upesy_wroom/TFT_eSPI/Extensions/Touch.h \
  .pio/libdeps/upesy_wroom/TFT_eSPI/Extensions/Smooth_font.h \
  .pio/libdeps/upesy_wroom/TFT_eSPI/Extensions/Button.h \
- .pio/libdeps/upesy_wroom/TFT_eSPI/Extensions/Sprite.h
+ .pio/libdeps/upesy_wroom/TFT_eSPI/Extensions/Sprite.h \
+ .pio/libdeps/upesy_wroom/TJpg_Decoder/src/TJpg_Decoder.h \
+ .pio/libdeps/upesy_wroom/TJpg_Decoder/src/User_Config.h \
+ .pio/libdeps/upesy_wroom/TJpg_Decoder/src/tjpgd.h \
+ .pio/libdeps/upesy_wroom/TJpg_Decoder/src/tjpgdcnf.h \
+ /Users/power/.platformio/packages/framework-arduinoespressif32/libraries/LittleFS/src/LittleFS.h \
+ /Users/power/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/SD.h \
+ /Users/power/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h \
+ src/bird.h src/info.h
