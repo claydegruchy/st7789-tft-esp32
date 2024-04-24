@@ -1,4 +1,4 @@
-# ESP32-WROOM-32 with round 240x280 TFT using the SPI ST7789 interface controller
+# ESP32-WROOM-32 with round 240x240 TFT using the SPI ST7789 interface controller
 
 - Example project to setup the round 240x240 round TFT screen connected to an ESP32-WROOM-32 using PlatformIO IDE for VSCode.
 - I'm using the bodmer/TFT_eSPI display driver library.
