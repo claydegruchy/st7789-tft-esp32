@@ -236,4 +236,4 @@
  /Users/power/.platformio/packages/framework-arduinoespressif32/libraries/LittleFS/src/LittleFS.h \
  /Users/power/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/SD.h \
  /Users/power/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h \
- src/bird.h src/info.h
+ src/common_blackbird.h src/fieldfare.h src/info.h

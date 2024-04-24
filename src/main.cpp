@@ -40,7 +40,9 @@ TFT_eSPI tft = TFT_eSPI(); // TFT object
 TFT_eSprite spr = TFT_eSprite(&tft); // Sprite object
 
 // something
-#include "bird.h"
+#include "common_blackbird.h"
+#include "fieldfare.h"
+
 #include "info.h"
 
 // =======================================================================================
@@ -127,16 +129,12 @@ void loop() {
   tft.pushImage(100, 100, infoWidth, infoHeight, info);
   showMessage("info icon");
   delay(2000);
-
-  // Get the width and height in pixels of the jpeg if you wish
-  uint16_t w = 0, h = 0;
-  TJpgDec.getJpgSize(&w, &h, Common_Blackbird, sizeof(Common_Blackbird));
-  Serial.print("Width = ");
-  Serial.print(w);
-  Serial.print(", height = ");
-  Serial.println(h);
   TJpgDec.drawJpg(0, 0, Common_Blackbird, sizeof(Common_Blackbird));
   showMessage("common blackbird");
+  delay(4000);
+  TJpgDec.drawJpg(0, 0, Fieldfare, sizeof(Fieldfare));
+  showMessage("fieldfare");
+  delay(4000);
 
   // tft.pushImage(0, 0, COMMON_BLACKBIRD_WIDTH, COMMON_BLACKBIRD_HEIGHT,
   //               Common_Blackbird);
@@ -235,7 +233,7 @@ void loop() {
   //   num++;
   // }
 
-  delay(8000); // Pause so we see it
+  // delay(8000); // Pause so we see it
 
   spr.deleteSprite();
 }
