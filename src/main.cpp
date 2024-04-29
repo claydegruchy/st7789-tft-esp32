@@ -100,52 +100,23 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h,
   return 1;
 }
 
-// =======================================================================================
-// Setup
-// =======================================================================================
-
-void setup() {
-  Serial.begin(115200); // Debug only
-
-  tft.begin(); // initialize
-
-  // The jpeg image can be scaled by a factor of 1, 2, 4, or 8
-  TJpgDec.setJpgScale(1);
-
-  // The byte order can be swapped (set true for TFT_eSPI)
-  TJpgDec.setSwapBytes(true);
-
-  // The decoder must be given the exact name of the rendering function above
-  TJpgDec.setCallback(tft_output);
-
-  Serial.println("TFT_eSprite demo");
-
-  // Initialise SPIFFS
-  if (!SPIFFS.begin()) {
-    Serial.println("SPIFFS initialisation failed!");
-    while (1)
-      yield(); // Stay here twiddling thumbs waiting
-  }
-
-  // connect to wifi
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("Connected to WiFi");
-}
+// String url = "http://192.168.1.185:8080/captured.jpg";
+String url = "http://192.168.1.25";
 
 // Fetch a file from the URL given and save it in SPIFFS
-// Return 1 if a web fetch was needed or 0 if file already exists
-bool getFile(String url, String filename) {
+// Return 1 if a file was written or 0 if a file was not
+bool getFile(String url, String filename, bool overwrite = false) {
+  Serial.println("[getFile]" + url);
 
   // If it exists then no need to fetch it
   if (SPIFFS.exists(filename) == true) {
-    Serial.println("Found " + filename);
-    return 0;
+    if (!overwrite) {
+      Serial.println("Found " + filename);
+      return 0;
+    } else {
+      Serial.println(filename + " exists, overwriting...");
+      SPIFFS.remove(filename);
+    }
   }
 
   Serial.println("Downloading " + filename + " from " + url);
@@ -226,58 +197,74 @@ bool getFile(String url, String filename) {
   return 1; // File was fetched from web
 }
 
-String url = "http://192.168.1.185:8080/captured.jpg";
+// =======================================================================================
+// Setup
+// =======================================================================================
 
-// Server and image details
-const char *server = "192.168.1.185:8080";
-const char *imagePath = "/captured.jpg";
+void setup() {
+  Serial.begin(57600); // Debug only
+  while (!Serial)
+    ;
+
+  tft.begin(); // initialize
+  // The jpeg image can be scaled by a factor of 1, 2, 4, or 8
+  TJpgDec.setJpgScale(1);
+  // The byte order can be swapped (set true for TFT_eSPI)
+  TJpgDec.setSwapBytes(true);
+  // The decoder must be given the exact name of the rendering function above
+  TJpgDec.setCallback(tft_output);
+  Serial.println("TFT_eSprite demo");
+
+  // Initialise SPIFFS
+  if (!SPIFFS.begin()) {
+    Serial.println("SPIFFS initialisation failed!");
+    while (1)
+      yield(); // Stay here twiddling thumbs waiting
+  }
+
+  // connect to wifi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
+}
 
 // =======================================================================================
 // Loop
 // =======================================================================================
 int i = 0;
 void loop() {
+
   Serial.println("loop:" + i);
-  delay(1000);
+  Serial.println("querying image");
 
-  tft.fillScreen(TFT_RED);
+  Serial.println("Downlaoding file to /captured");
+  bool success = getFile(url, "/captured.jpg", true);
 
+  tft.fillScreen(TFT_BLACK);
   // Time recorded for test purposes
   uint32_t t = millis();
 
-  // Get the width and height in pixels of the jpeg if you wish
-  uint16_t w = 0, h = 0;
-  TJpgDec.getFsJpgSize(&w, &h, "/fieldfare.jpg"); // Note name preceded with "/"
-  Serial.print("Width = ");
-  Serial.print(w);
-  Serial.print(", height = ");
-  Serial.println(h);
-
-  // Draw the image, top left at 0,0
-  TJpgDec.drawFsJpg(0, 0, "/fieldfare.jpg");
-
   // How much time did rendering take (ESP8266 80MHz 271ms, 160MHz 157ms, ESP32
   // SPI 120ms, 8bit parallel 105ms
+
+  // laoding images
+  TJpgDec.drawFsJpg(0, 0, "/captured.jpg");
+  showMessage("captured");
   t = millis() - t;
   Serial.print(t);
   Serial.println(" ms");
-
-  // Wait before drawing again
   delay(2000);
 
-  delay(1000);
-  spr.deleteSprite();
-  i++;
-
-  // laoding images
-  // tft.fillScreen(TFT_BLACK);
-  // tft.pushImage(100, 100, infoWidth, infoHeight, info);
-  // showMessage("info icon");
-  // delay(2000);
-  // TJpgDec.drawJpg(0, 0, Common_Blackbird, sizeof(Common_Blackbird));
-  // showMessage("common blackbird");
   // delay(4000);
-  // TJpgDec.drawJpg(0, 0, Fieldfare, sizeof(Fieldfare));
+  // TJpgDec.drawFsJpg(0, 0, "/fieldfare.jpg");
   // showMessage("fieldfare");
   // delay(4000);
+  spr.deleteSprite();
+
+  i++;
 }
