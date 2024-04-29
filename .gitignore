@@ -4,3 +4,8 @@
 .vscode/ipch
 .history
 .vscode
+.poi/build
+
+src/secrets.h
+
+host/

@@ -33,17 +33,25 @@
 #include <TFT_eSPI.h>
 #include <stdint.h>
 // Include the jpeg decoder library
+#include "secrets.h"
+// jpg decoding library
 #include <TJpg_Decoder.h>
+// wifi mangager
+#include <WiFi.h>
+// flash memory filesystem
+#include "SPIFFS.h"
+// http client
+#include "HTTPClient.h"
 
 TFT_eSPI tft = TFT_eSPI(); // TFT object
 
 TFT_eSprite spr = TFT_eSprite(&tft); // Sprite object
 
 // something
-#include "common_blackbird.h"
-#include "fieldfare.h"
+// #include "common_blackbird.h"
+// #include "fieldfare.h"
 
-#include "info.h"
+// #include "info.h"
 
 // =======================================================================================
 // Draw an X centered on x,y
@@ -111,129 +119,165 @@ void setup() {
   TJpgDec.setCallback(tft_output);
 
   Serial.println("TFT_eSprite demo");
+
+  // Initialise SPIFFS
+  if (!SPIFFS.begin()) {
+    Serial.println("SPIFFS initialisation failed!");
+    while (1)
+      yield(); // Stay here twiddling thumbs waiting
+  }
+
+  // connect to wifi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
 }
+
+// Fetch a file from the URL given and save it in SPIFFS
+// Return 1 if a web fetch was needed or 0 if file already exists
+bool getFile(String url, String filename) {
+
+  // If it exists then no need to fetch it
+  if (SPIFFS.exists(filename) == true) {
+    Serial.println("Found " + filename);
+    return 0;
+  }
+
+  Serial.println("Downloading " + filename + " from " + url);
+
+  // Check WiFi connection
+  if ((WiFi.status() == WL_CONNECTED)) {
+
+    Serial.print("[HTTP] begin...\n");
+
+#ifdef ARDUINO_ARCH_ESP8266
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(
+        new BearSSL::WiFiClientSecure);
+    client->setInsecure();
+    HTTPClient http;
+    http.begin(*client, url);
+#else
+    HTTPClient http;
+    // Configure server and url
+    http.begin(url);
+#endif
+
+    Serial.print("[HTTP] GET...\n");
+    // Start connection and send HTTP header
+    int httpCode = http.GET();
+    if (httpCode > 0) {
+      fs::File f = SPIFFS.open(filename, "w+");
+      if (!f) {
+        Serial.println("file open failed");
+        return 0;
+      }
+      // HTTP header has been send and Server response header has been handled
+      Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+
+      // File found at server
+      if (httpCode == HTTP_CODE_OK) {
+
+        // Get length of document (is -1 when Server sends no Content-Length
+        // header)
+        int total = http.getSize();
+        int len = total;
+
+        // Create buffer for read
+        uint8_t buff[128] = {0};
+
+        // Get tcp stream
+        WiFiClient *stream = http.getStreamPtr();
+
+        // Read all data from server
+        while (http.connected() && (len > 0 || len == -1)) {
+          // Get available data size
+          size_t size = stream->available();
+
+          if (size) {
+            // Read up to 128 bytes
+            int c = stream->readBytes(
+                buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+
+            // Write it to file
+            f.write(buff, c);
+
+            // Calculate remaining bytes
+            if (len > 0) {
+              len -= c;
+            }
+          }
+          yield();
+        }
+        Serial.println();
+        Serial.print("[HTTP] connection closed or file end.\n");
+      }
+      f.close();
+    } else {
+      Serial.printf("[HTTP] GET... failed, error: %s\n",
+                    http.errorToString(httpCode).c_str());
+    }
+    http.end();
+  }
+  return 1; // File was fetched from web
+}
+
+String url = "http://192.168.1.185:8080/captured.jpg";
+
+// Server and image details
+const char *server = "192.168.1.185:8080";
+const char *imagePath = "/captured.jpg";
 
 // =======================================================================================
 // Loop
 // =======================================================================================
-
+int i = 0;
 void loop() {
-  Serial.println("loop");
+  Serial.println("loop:" + i);
+  delay(1000);
 
-  // Common_Blackbird
-  // tft.pushImage(0, 0, 240, 240, (uint16_t *)info, 1);
+  tft.fillScreen(TFT_RED);
 
-  // int xw = tft.width() / 2; // xw, yh is middle of screen
-  // int yh = tft.height() / 2;
-  tft.fillScreen(TFT_BLACK);
-  tft.pushImage(100, 100, infoWidth, infoHeight, info);
-  showMessage("info icon");
+  // Time recorded for test purposes
+  uint32_t t = millis();
+
+  // Get the width and height in pixels of the jpeg if you wish
+  uint16_t w = 0, h = 0;
+  TJpgDec.getFsJpgSize(&w, &h, "/fieldfare.jpg"); // Note name preceded with "/"
+  Serial.print("Width = ");
+  Serial.print(w);
+  Serial.print(", height = ");
+  Serial.println(h);
+
+  // Draw the image, top left at 0,0
+  TJpgDec.drawFsJpg(0, 0, "/fieldfare.jpg");
+
+  // How much time did rendering take (ESP8266 80MHz 271ms, 160MHz 157ms, ESP32
+  // SPI 120ms, 8bit parallel 105ms
+  t = millis() - t;
+  Serial.print(t);
+  Serial.println(" ms");
+
+  // Wait before drawing again
   delay(2000);
-  TJpgDec.drawJpg(0, 0, Common_Blackbird, sizeof(Common_Blackbird));
-  showMessage("common blackbird");
-  delay(4000);
-  TJpgDec.drawJpg(0, 0, Fieldfare, sizeof(Fieldfare));
-  showMessage("fieldfare");
-  delay(4000);
 
-  // tft.pushImage(0, 0, COMMON_BLACKBIRD_WIDTH, COMMON_BLACKBIRD_HEIGHT,
-  //               Common_Blackbird);
-
-  // tft.setPivot(xw, yh); // Set pivot to middle of TFT screen
-  // drawX(xw, yh);        // Show where screen pivot is
-
-  // // Create the Sprite
-  // spr.setColorDepth(8);      // Create an 8bpp Sprite of 60x30 pixels
-  // spr.createSprite(64, 30);  // 8bpp requires 64 * 30 = 1920 bytes
-  // spr.setPivot(32, 55);      // Set pivot relative to top left corner of
-  // Sprite spr.fillSprite(TFT_BLACK); // Fill the Sprite with black
-
-  // spr.setTextColor(TFT_GREEN);        // Green text
-  // spr.setTextDatum(MC_DATUM);         // Middle centre datum
-  // spr.drawString("Hello", 32, 15, 4); // Plot text, font 4, in Sprite at 30,
-  // 15
-
-  // spr.pushRotated(0);
-  // spr.pushRotated(90);
-  // spr.pushRotated(180);
-  // spr.pushRotated(270);
-
-  // delay(2000);
-
-  // showMessage("45 degree angles");
-  // drawX(xw, yh); // Show where screen pivot is
-
-  // spr.pushRotated(45);
-  // spr.pushRotated(135);
-  // spr.pushRotated(225);
-  // spr.pushRotated(315);
-
-  // delay(2000); // Pause so we see it
-
-  // showMessage("Moved Sprite pivot point");
-  // drawX(xw, yh); // Show where screen pivot is
-
-  // spr.setPivot(-20, 15); // Change just the Sprite pivot point
-
-  // spr.pushRotated(45);
-  // spr.pushRotated(135);
-  // spr.pushRotated(225);
-  // spr.pushRotated(315);
-
-  // delay(2000); // Pause so we see it
-
-  // showMessage("Moved TFT pivot point");
-  // tft.setPivot(100, 100); // Change just the TFT pivot point
-  // drawX(100, 100);        // Show where pivot is
-
-  // spr.pushRotated(45);
-  // spr.pushRotated(135);
-  // spr.pushRotated(225);
-  // spr.pushRotated(315);
-
-  // delay(2000); // Pause so we see it
-
-  // showMessage("Transparent rotations");
-  // tft.fillCircle(xw, yh, 70, TFT_DARKGREY); // Draw a filled circle
-
-  // tft.setPivot(xw, yh); // Set pivot to middle of screen
-  // drawX(xw, yh);        // Show where pivot is
-
-  // spr.deleteSprite();
-
-  // spr.setColorDepth(8);     // Create a 8bpp Sprite
-  // spr.createSprite(40, 30); // Create a new Sprite 40x30
-  // spr.setPivot(20, 70);     // Set Sprite pivot at 20,80
-
-  // spr.setTextColor(TFT_RED);  // Red text in Sprite
-  // spr.setTextDatum(MC_DATUM); // Middle centre datum
-
-  // int num = 1;
-
-  // for (int16_t angle = 30; angle <= 360; angle += 30) {
-  //   spr.fillSprite(TFT_BLACK); // Clear the Sprite
-  //   spr.drawNumber(num, 20, 15,
-  //                  4); // Plot number, in Sprite at 20,15 and with font 4
-  //   spr.pushRotated(angle,
-  //                   TFT_BLACK); // Plot rotated Sprite, black being
-  //                   transparent
-  //   num++;
-  // }
-
-  // spr.setTextColor(TFT_WHITE); // White text in Sprite
-  // spr.setPivot(-75, 15);       // Set Sprite pivot at -75,15
-
-  // for (int16_t angle = -90; angle < 270; angle += 30) {
-  //   spr.fillSprite(TFT_BLACK); // Clear the Sprite
-  //   spr.drawNumber(angle + 90, 20, 15,
-  //                  4); // Plot number, in Sprite at 20,15 and with font 4
-  //   spr.pushRotated(angle,
-  //                   TFT_BLACK); // Plot rotated Sprite, black being
-  //                   transparent
-  //   num++;
-  // }
-
-  // delay(8000); // Pause so we see it
-
+  delay(1000);
   spr.deleteSprite();
+  i++;
+
+  // laoding images
+  // tft.fillScreen(TFT_BLACK);
+  // tft.pushImage(100, 100, infoWidth, infoHeight, info);
+  // showMessage("info icon");
+  // delay(2000);
+  // TJpgDec.drawJpg(0, 0, Common_Blackbird, sizeof(Common_Blackbird));
+  // showMessage("common blackbird");
+  // delay(4000);
+  // TJpgDec.drawJpg(0, 0, Fieldfare, sizeof(Fieldfare));
+  // showMessage("fieldfare");
+  // delay(4000);
 }
