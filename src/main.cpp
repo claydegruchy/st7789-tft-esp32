@@ -202,7 +202,7 @@ bool getFile(String url, String filename, bool overwrite = false) {
 // =======================================================================================
 
 void setup() {
-  Serial.begin(57600); // Debug only
+  Serial.begin(115200); // Debug only
   while (!Serial)
     ;
 
